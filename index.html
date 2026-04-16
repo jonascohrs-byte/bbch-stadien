@@ -12,7 +12,7 @@
 function getNote(yr,cr,code){try{return localStorage.getItem(noteKey(yr,cr,code))||"";}catch(e){return"";}}
 function saveNote(yr,cr,code,val){try{localStorage.setItem(noteKey(yr,cr,code),val);}catch(e){}
 const dot=document.getElementById(`dot_${cr}_${code}`);if(dot)dot.classList.toggle("visible",val.trim().length>0);}
-function buildYearSelect(){const sel=document.getElementById("yearSelect");const cur=new Date().getFullYear();let opts="";for(let y=cur+1;y>=cur-5;y--){opts+=`<option value="${y}" ${y === year ? "selected" : ""}>${y}</option>`;}
+function buildYearSelect(){const sel=document.getElementById("yearSelect");let opts="";for(let y=2030;y>=2026;y--){opts+=`<option value="${y}" ${y === year ? "selected" : ""}>${y}</option>`;}
 sel.innerHTML=opts;}
 function setYear(y){year=parseInt(y);render();}
 const phaseColors={"Ruhe":{bg:"#F1EFE8",col:"#5F5E5A"},"Infloreszenz":{bg:"#DBEDF9",col:"#185FA5"},"Blüte":{bg:"#FBEAF0",col:"#993556"},"Fruchtentwicklung":{bg:"#EAF3DE",col:"#3B6D11"},"Blattentwicklung":{bg:"#F1EFE8",col:"#5F5E5A"},"Ausläufer":{bg:"#E6F1FB",col:"#185FA5"},"Blütenknospe":{bg:"#DBEDF9",col:"#185FA5"},"Fruchtbildung":{bg:"#EAF3DE",col:"#3B6D11"},"Fruchtreife":{bg:"#FAEEDA",col:"#633806"},"Vegetationsabschluss":{bg:"#F1EFE8",col:"#5F5E5A"},};function frostBadge(frost){if(!frost||frost==="–")return"";const val=parseFloat(frost.replace("°C","").replace(",","."));let bg,col;if(val<=-5){bg="#DBEDF9";col="#185FA5";}
