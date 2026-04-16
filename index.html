@@ -33,6 +33,16 @@ function renderOverview(){document.getElementById("legend").innerHTML="";documen
       style="padding:4px 10px;border:0.5px solid #ccc;border-radius:7px;font-size:12px;background:#fff;color:#333;cursor:pointer"><option value="Alle" ${filterCrop==="Alle"?"selected":""}>Alle Kulturen</option>
       ${cropKeys.map(c=>`<option value="${c}"${filterCrop===c?"selected":""}>${labels[c]}</option>`).join("")}
     </select><span style="font-size:11px;color:#bbb;margin-left:4px">Nur Stadien mit Notizen werden angezeigt</span>
+    <span style="margin-left:auto;display:flex;gap:6px">
+      <button onclick="exportPDF('year')" style="padding:5px 13px;background:#2D4A2D;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Jahr exportieren
+      </button>
+      <button onclick="exportPDF('crop')" style="padding:5px 13px;background:#4A7C4A;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Kultur alle Jahre
+      </button>
+    </span>
   `;const cList=filterCrop==="Alle"?cropKeys:[filterCrop];const cards=[];for(const cr of cList){const entries=[];for(const s of crops[cr].stages){const val=getNote(year,cr,s.code);if(val&&val.trim())entries.push({s,val:val.trim()});}
 if(entries.length===0)continue;const rows=entries.map(({s,val})=>{const pc=phaseColors[s.phase]||{bg:"#eee",col:"#333"};return`<div class="ov-row"><div class="ov-code" style="color:${pc.col}">${s.code}</div><div class="ov-content"><div class="ov-name">${s.name}
             <span class="card-phase" style="background:${pc.bg};color:${pc.col};font-size:10px;margin-left:5px">${s.phase}</span></div><div class="ov-note-text">${val}</div><div class="ov-jump" onclick="jumpTo('${cr}','${s.code}')">→ zur Kachel springen</div></div></div>`;}).join("");cards.push(`<div class="ov-card"><div class="ov-card-header"><span class="dot" style="background:${crops[cr].color}"></span><span class="ov-card-title">${labels[cr]}</span><span class="ov-count">${entries.length} Eintrag${entries.length > 1 ? "e" : ""}</span></div><div>${rows}</div></div>`);}
@@ -52,6 +62,76 @@ function setPhase(p){phase=p;render();}
 function render(){const d=crops[crop];document.getElementById("legend").innerHTML=d.legend;document.getElementById("filters").innerHTML=d.phases.map(p=>`<button class="fbtn ${p === phase ? "active" : ""}" onclick="setPhase('${p}')">${p}</button>`).join("");const list=phase==="Alle"?d.stages:d.stages.filter(s=>s.phase===phase);document.getElementById("grid").style.gridTemplateColumns="repeat(auto-fill,minmax(170px,1fr))";document.getElementById("grid").innerHTML=list.map(s=>makeCard(crop,s)).join("");document.getElementById("frost-note").style.display=d.frost?"block":"none";}
 function setYear(y){year=parseInt(y);if(viewMode==="overview")renderOverview();else render();}
 buildYearSelect();buildTabs();render();function loadHeader(){try{const n=localStorage.getItem("hdr_name");const s=localStorage.getItem("hdr_sub");const l=localStorage.getItem("hdr_logo");if(n)document.getElementById("headerName").textContent=n;if(s)document.getElementById("headerSub").textContent=s;if(l)document.getElementById("logoImg").innerHTML=`<img src="${l}" alt="Logo">`;}catch(e){}}
+
+function exportPDF(mode) {
+  // mode: 'year' = alle Kulturen eines Jahres, 'crop' = eine Kultur alle Jahre
+  const cropKeys = Object.keys(crops);
+  const years = [2026,2027,2028,2029,2030];
+  let html = '';
+  const style = `
+    <style>
+      body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #1C1C1A; margin: 0; padding: 0; }
+      .pdf-header { background: #2D4A2D; color: #fff; padding: 18px 24px; margin-bottom: 24px; }
+      .pdf-header h1 { font-size: 20px; margin: 0 0 4px; }
+      .pdf-header p { font-size: 12px; margin: 0; opacity: 0.7; }
+      .pdf-section { margin: 0 24px 28px; break-inside: avoid; }
+      .pdf-section-title { font-size: 15px; font-weight: 700; color: #2D4A2D; border-bottom: 2px solid #2D4A2D; padding-bottom: 5px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+      .pdf-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th { background: #F5F0E8; text-align: left; padding: 6px 10px; font-weight: 600; color: #5A5A52; border-bottom: 1px solid #D8D0C0; }
+      td { padding: 7px 10px; vertical-align: top; border-bottom: 1px solid #EDE8DE; }
+      td:first-child { font-family: monospace; font-weight: 700; font-size: 14px; width: 45px; }
+      td:nth-child(2) { width: 140px; font-weight: 600; }
+      td:nth-child(3) { width: 80px; }
+      .phase-badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 999px; font-weight: 500; }
+      .note-cell { color: #2D4A2D; background: #E8F0E8; border-radius: 4px; padding: 4px 7px; line-height: 1.5; }
+      .empty { color: #aaa; font-style: italic; }
+      @media print { @page { margin: 15mm; } }
+    </style>`;
+
+  if (mode === 'year') {
+    // Alle Kulturen des aktuellen Jahres
+    html += `<div class="pdf-header"><h1>BBCH-Stadien Notizen · ${year}</h1><p>Alle Kulturen · Cohrs Hofladen</p></div>`;
+    for (const cr of cropKeys) {
+      const entries = [];
+      for (const s of crops[cr].stages) {
+        const val = getNote(year, cr, s.code);
+        if (val && val.trim()) entries.push({s, val: val.trim()});
+      }
+      if (entries.length === 0) continue;
+      const pc_map = {};
+      const rows = entries.map(({s, val}) => {
+        const pc = phaseColors[s.phase] || {bg:'#eee',col:'#333'};
+        return `<tr><td>${s.code}</td><td>${s.name}</td><td><span class="phase-badge" style="background:${pc.bg};color:${pc.col}">${s.phase}</span></td><td><div class="note-cell">${val.split('\n').join('<br>')}</div></td></tr>`;
+      }).join('');
+      html += `<div class="pdf-section"><div class="pdf-section-title"><span class="pdf-dot" style="background:${crops[cr].color}"></span>${labels[cr]} · ${entries.length} Eintrag${entries.length>1?'e':''}</div><table><thead><tr><th>Code</th><th>Stadium</th><th>Phase</th><th>Notiz</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+    if (html.indexOf('<table>') === -1) html += '<p style="padding:24px;color:#aaa">Keine Notizen für ' + year + ' vorhanden.</p>';
+  } else {
+    // Aktuelle Kultur über alle Jahre
+    const cr = crop;
+    html += `<div class="pdf-header"><h1>BBCH-Stadien Notizen · ${labels[cr]}</h1><p>Alle Jahre · Cohrs Hofladen</p></div>`;
+    for (const yr of years) {
+      const entries = [];
+      for (const s of crops[cr].stages) {
+        const val = getNote(yr, cr, s.code);
+        if (val && val.trim()) entries.push({s, val: val.trim()});
+      }
+      if (entries.length === 0) continue;
+      const rows = entries.map(({s, val}) => {
+        const pc = phaseColors[s.phase] || {bg:'#eee',col:'#333'};
+        return `<tr><td>${s.code}</td><td>${s.name}</td><td><span class="phase-badge" style="background:${pc.bg};color:${pc.col}">${s.phase}</span></td><td><div class="note-cell">${val.split('\n').join('<br>')}</div></td></tr>`;
+      }).join('');
+      html += `<div class="pdf-section"><div class="pdf-section-title">${yr} · ${entries.length} Eintrag${entries.length>1?'e':''}</div><table><thead><tr><th>Code</th><th>Stadium</th><th>Phase</th><th>Notiz</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+    if (html.indexOf('<table>') === -1) html += '<p style="padding:24px;color:#aaa">Keine Notizen für ' + labels[cr] + ' vorhanden.</p>';
+  }
+
+  const win = window.open('', '_blank');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BBCH Export</title>' + style + '</head><body>' + html + '<scr'+'ipt>window.onload=function(){window.print();}<\/script></body></html>');
+  win.document.close();
+}
+
 function openModal(){try{document.getElementById("editName").value=localStorage.getItem("hdr_name")||"Cohrs Hofladen";document.getElementById("editSub").value=localStorage.getItem("hdr_sub")||"BBCH-Stadien Obstbau";document.getElementById("editLogo").value=localStorage.getItem("hdr_logo")||"";}catch(e){}
 document.getElementById("editModal").classList.add("open");}
 function closeModal(){document.getElementById("editModal").classList.remove("open");}
